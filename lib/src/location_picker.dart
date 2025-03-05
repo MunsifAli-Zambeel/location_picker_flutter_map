@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:flutter_map_location_marker/flutter_map_location_marker.dart'
     as marker;
+import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart' as intl;
 import 'package:latlong2/latlong.dart';
@@ -33,6 +34,8 @@ class FlutterLocationPicker extends StatefulWidget {
   ///
   final void Function(Exception e)? onError;
 
+  final void Function(LatLng latLng)? onLocationChanged;
+
   /// [initPosition] :(LatLong?) set the initial location of the pointer on the map
   ///
   final LatLong? initPosition;
@@ -49,7 +52,7 @@ class FlutterLocationPicker extends StatefulWidget {
   ///
   final String nominatimHost;
 
-  /// [nominatimAdditionalQueryParameters] : (Map<String,dynamic>) additional parameters to add to the nominatim query. Can also be used to override existing parameters (example: {'extratags': '1'}) (default = null)
+  /// [nominatimAdditionalQueryParameters] : (`Map<String,dynamic>`) additional parameters to add to the nominatim query. Can also be used to override existing parameters (example: {'extratags': '1'}) (default = null)
   ///
   final Map<String, dynamic>? nominatimAdditionalQueryParameters;
 
@@ -108,6 +111,8 @@ class FlutterLocationPicker extends StatefulWidget {
   /// [showLocationController] : (bool) enable/disable locate me button (default = true)
   ///
   final bool showLocationController;
+
+  final Widget? locationControllerWidget;
 
   /// [showSelectLocationButton] : (bool) enable/disable select location button (default = true)
   ///
@@ -179,7 +184,7 @@ class FlutterLocationPicker extends StatefulWidget {
 
   /// [searchbarInputFocusBorder] : (OutlineInputBorder) change the border of the search bar when focused
   ///
-  final OutlineInputBorder? searchbarInputFocusBorderp;
+  final OutlineInputBorder? searchbarInputFocusBorder;
 
   /// [searchbarBorderRadius] : (BorderRadiusGeometry) change the border radius of the search bar
   ///
@@ -245,6 +250,8 @@ class FlutterLocationPicker extends StatefulWidget {
   ///
   final double? contributorBadgeForOSMPositionBottom;
 
+  final Widget? currentLocationIcon;
+
   /// [mapLayers] : (List<Widget>) add custom layers to the map (default [])
   ///  example: [PolylineLayerWidget(polyline: Polyline(points: points, color: Colors.red))]
   final List<Widget> mapLayers;
@@ -255,6 +262,7 @@ class FlutterLocationPicker extends StatefulWidget {
     this.onChanged,
     this.selectedLocationButtonTextStyle = const TextStyle(fontSize: 20),
     this.onError,
+    this.onLocationChanged,
     this.initPosition,
     this.stepZoom = 1,
     this.initZoom = 17,
@@ -272,6 +280,7 @@ class FlutterLocationPicker extends StatefulWidget {
     this.trackMyPosition = false,
     this.showZoomController = true,
     this.showLocationController = true,
+    this.locationControllerWidget,
     this.showSelectLocationButton = true,
     this.showCurrentLocationPointer = true,
     this.selectLocationButtonStyle,
@@ -285,9 +294,10 @@ class FlutterLocationPicker extends StatefulWidget {
     this.searchBarBackgroundColor,
     this.searchBarTextColor,
     this.searchBarHintText = 'Search location',
+    this.currentLocationIcon,
     this.searchBarHintColor,
     this.searchbarInputBorder,
-    this.searchbarInputFocusBorderp,
+    this.searchbarInputFocusBorder,
     this.searchbarBorderRadius,
     this.searchbarDebounceDuration,
     this.mapLoadingBackgroundColor,
@@ -391,27 +401,36 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
     // Create some tweens. These serve to split up the transition from one location to another.
     // In our case, we want to split the transition be<tween> our current map center and the destination.
     final latTween = Tween<double>(
-        begin: _mapController.camera.center.latitude,
-        end: destLocation.latitude);
+      begin: _mapController.camera.center.latitude,
+      end: destLocation.latitude,
+    );
     final lngTween = Tween<double>(
-        begin: _mapController.camera.center.longitude,
-        end: destLocation.longitude);
-    final zoomTween =
-        Tween<double>(begin: _mapController.camera.zoom, end: destZoom);
+      begin: _mapController.camera.center.longitude,
+      end: destLocation.longitude,
+    );
+    final zoomTween = Tween<double>(
+      begin: _mapController.camera.zoom,
+      end: destZoom,
+    );
     // Create a animation controller that has a duration and a TickerProvider.
     if (mounted) {
       _animationController = AnimationController(
-          vsync: this, duration: widget.mapAnimationDuration);
+        vsync: this,
+        duration: widget.mapAnimationDuration,
+      );
     }
     // The animation determines what path the animation will take. You can try different Curves values, although I found
     // fastOutSlowIn to be my favorite.
     final Animation<double> animation = CurvedAnimation(
-        parent: _animationController, curve: Curves.fastOutSlowIn);
+      parent: _animationController,
+      curve: Curves.fastOutSlowIn,
+    );
 
     _animationController.addListener(() {
       _mapController.move(
-          LatLng(latTween.evaluate(animation), lngTween.evaluate(animation)),
-          zoomTween.evaluate(animation));
+        LatLng(latTween.evaluate(animation), lngTween.evaluate(animation)),
+        zoomTween.evaluate(animation),
+      );
     });
 
     if (mounted) {
@@ -429,17 +448,20 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
   /// location.
   ///  address (String): The address parameter represents the current address of the location.
   void onLocationChanged({required latLng, String? address}) {
-    pickData(latLng).then(
-      (PickedData pickedData) {
-        if (widget.onChanged != null) widget.onChanged!(pickedData);
-        // These two lines, and the onError callback below are the replacement =
-        // for the entire setNameCurrentPos function.
-        _searchController.text = address ?? pickedData.address;
-        setState(() {});
-      },
-    ).onError<Exception>((error, stackTrace) {
-      onError(error);
-    });
+    pickData(latLng)
+        .then((PickedData pickedData) {
+          if (widget.onChanged != null) widget.onChanged!(pickedData);
+          // These two lines, and the onError callback below are the replacement =
+          // for the entire setNameCurrentPos function.
+          _searchController.text = address ?? pickedData.address;
+          widget.onLocationChanged?.call(
+            LatLng(pickedData.latLong.latitude, pickedData.latLong.longitude),
+          );
+          setState(() {});
+        })
+        .onError<Exception>((error, stackTrace) {
+          onError(error);
+        });
   }
 
   /// It takes the pointer of the map and sends a request to the OpenStreetMap API to get the address of
@@ -450,7 +472,8 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
   Future<PickedData> pickData(LatLong center) async {
     var client = http.Client();
     // If zoom level is not explicitly set, use zoom level corresponding to current camera zoom, when possible
-    int roundedZoom = widget.nominatimZoomLevel ??
+    int roundedZoom =
+        widget.nominatimZoomLevel ??
         ((isLoading || _animationController.isAnimating)
             ? 18
             : min(_mapController.camera.zoom.round(), 18));
@@ -496,8 +519,10 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
   @override
   void initState() {
     _mapController = MapController();
-    _animationController =
-        AnimationController(duration: widget.mapAnimationDuration, vsync: this);
+    _animationController = AnimationController(
+      duration: widget.mapAnimationDuration,
+      vsync: this,
+    );
     onError = widget.onError ?? (e) => debugPrint(e.toString());
 
     /// Checking if the trackMyPosition is true or false. If it is true, it will get the current
@@ -505,35 +530,36 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
     /// it will set the initLate and initLong to the [initPosition].latitude and
     /// [initPosition].longitude.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.initPosition != null) {
-        initPosition = LatLong(
-            widget.initPosition!.latitude, widget.initPosition!.longitude);
-        onLocationChanged(latLng: initPosition);
-        setState(() {
-          isLoading = false;
-        });
-      }
+      if (widget.initPosition == null) return;
+      initPosition = LatLong(
+        widget.initPosition!.latitude,
+        widget.initPosition!.longitude,
+      );
+      onLocationChanged(latLng: initPosition);
+      setState(() {
+        isLoading = false;
+      });
     });
 
     if (widget.trackMyPosition) {
-      _determinePosition().then((currentPosition) {
-        initPosition =
-            LatLong(currentPosition.latitude!, currentPosition.longitude!);
+      _determinePosition()
+          .then((currentPosition) {
+            initPosition = LatLong(
+              currentPosition.latitude!,
+              currentPosition.longitude!,
+            );
 
-        onLocationChanged(latLng: initPosition);
-        _animatedMapMove(initPosition.toLatLng(), 18.0);
-        setState(
-          () {
-            isLoading = false;
-          },
-        );
-      }, onError: (e) => onError(e)).whenComplete(
-        () => setState(
-          () {
-            isLoading = false;
-          },
-        ),
-      );
+            onLocationChanged(latLng: initPosition);
+            _animatedMapMove(initPosition.toLatLng(), 18.0);
+            setState(() {
+              isLoading = false;
+            });
+          }, onError: (e) => onError(e))
+          .whenComplete(
+            () => setState(() {
+              isLoading = false;
+            }),
+          );
     } else {
       onLocationChanged(latLng: initPosition);
       setState(() {
@@ -546,7 +572,9 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
     _mapController.mapEventStream.listen((event) async {
       if (event is MapEventMoveEnd) {
         LatLong center = LatLong(
-            event.camera.center.latitude, event.camera.center.longitude);
+          event.camera.center.latitude,
+          event.camera.center.longitude,
+        );
         onLocationChanged(latLng: center);
       }
     });
@@ -567,22 +595,19 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: _options.length > 5 ? 5 : _options.length,
-      itemBuilder: (context, index) {
+      itemCount: min(_options.length, 5),
+      itemBuilder: (_, index) {
+        final option = _options[index];
         return ListTile(
           leading: Icon(Icons.location_on, color: widget.searchBarTextColor),
           title: Text(
-            _options[index].displayname,
+            option.displayname,
             style: TextStyle(color: widget.searchBarTextColor),
           ),
           onTap: () {
-            LatLong center =
-                LatLong(_options[index].latitude, _options[index].longitude);
+            LatLong center = LatLong(option.latitude, option.longitude);
             _animatedMapMove(center.toLatLng(), 18.0);
-            onLocationChanged(
-              latLng: center,
-              address: _options[index].displayname,
-            );
+            onLocationChanged(latLng: center, address: option.displayname);
             _focusNode.unfocus();
             _options.clear();
             setState(() {});
@@ -607,7 +632,8 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
       child: Container(
         margin: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: widget.searchBarBackgroundColor ??
+          color:
+              widget.searchBarBackgroundColor ??
               Theme.of(context).colorScheme.surface,
           borderRadius:
               widget.searchbarBorderRadius ?? BorderRadius.circular(5),
@@ -615,20 +641,22 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
         child: Column(
           children: [
             TextFormField(
-              textDirection: isRTL(_searchController.text)
-                  ? TextDirection.rtl
-                  : TextDirection.ltr,
+              textDirection:
+                  isRTL(_searchController.text)
+                      ? TextDirection.rtl
+                      : TextDirection.ltr,
               style: TextStyle(color: widget.searchBarTextColor),
               controller: _searchController,
               focusNode: _focusNode,
               decoration: InputDecoration(
                 hintText: widget.searchBarHintText,
-                hintTextDirection: isRTL(widget.searchBarHintText)
-                    ? TextDirection.rtl
-                    : TextDirection.ltr,
+                hintTextDirection:
+                    isRTL(widget.searchBarHintText)
+                        ? TextDirection.rtl
+                        : TextDirection.ltr,
                 border: widget.searchbarInputBorder ?? inputBorder,
                 focusedBorder:
-                    widget.searchbarInputFocusBorderp ?? inputFocusBorder,
+                    widget.searchbarInputFocusBorder ?? inputFocusBorder,
                 hintStyle: TextStyle(color: widget.searchBarHintColor),
                 suffixIcon: IconButton(
                   onPressed: () {
@@ -636,10 +664,7 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
                     _options.clear();
                     setState(() {});
                   },
-                  icon: Icon(
-                    Icons.clear,
-                    color: widget.searchBarTextColor,
-                  ),
+                  icon: Icon(Icons.clear, color: widget.searchBarTextColor),
                 ),
               ),
               onChanged: (String value) {
@@ -651,7 +676,7 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
                   widget.searchbarDebounceDuration ??
                       const Duration(milliseconds: 500),
                   () async {
-                    var client = http.Client();
+                    final client = http.Client();
                     try {
                       String url =
                           'https://${widget.nominatimHost}/search?q=$value&format=json&polygon_geojson=1&addressdetails=1&accept-language=${widget.mapLanguage}${widget.countryFilter != null ? '&countrycodes=${widget.countryFilter}' : ''}';
@@ -659,12 +684,16 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
                       var decodedResponse =
                           jsonDecode(utf8.decode(response.bodyBytes))
                               as List<dynamic>;
-                      _options = decodedResponse
-                          .map((e) => OSMdata(
-                              displayname: e['display_name'],
-                              latitude: double.parse(e['lat']),
-                              longitude: double.parse(e['lon'])))
-                          .toList();
+                      _options =
+                          decodedResponse
+                              .map(
+                                (e) => OSMdata(
+                                  displayname: e['display_name'],
+                                  latitude: double.parse(e['lat']),
+                                  longitude: double.parse(e['lon']),
+                                ),
+                              )
+                              .toList();
                       setState(() {});
                     } on Exception catch (e) {
                       onError(e);
@@ -675,11 +704,7 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
                 );
               },
             ),
-            StatefulBuilder(
-              builder: ((context, setState) {
-                return _buildListView();
-              }),
-            ),
+            StatefulBuilder(builder: (_, _) => _buildListView()),
           ],
         ),
       ),
@@ -693,36 +718,64 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
       child: Column(
         children: [
           if (widget.showZoomController)
-            FloatingActionButton(
-              heroTag: "btn1",
-              shape: const CircleBorder(),
-              backgroundColor: widget.zoomButtonsBackgroundColor,
-              onPressed: () {
-                _animatedMapMove(_mapController.camera.center,
-                    _mapController.camera.zoom + widget.stepZoom);
-              },
-              child: Icon(
-                Icons.zoom_in,
-                color: widget.zoomButtonsColor,
+            Container(
+              width: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Color(0XFFB6B9BF), width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    offset: Offset(0, 4),
+                    blurRadius: 8.0,
+                  ),
+                ],
               ),
-            ),
-          const SizedBox(height: 16),
-          if (widget.showZoomController)
-            FloatingActionButton(
-              heroTag: "btn2",
-              shape: const CircleBorder(),
-              backgroundColor: widget.zoomButtonsBackgroundColor,
-              onPressed: () {
-                _animatedMapMove(_mapController.camera.center,
-                    _mapController.camera.zoom - widget.stepZoom);
-              },
-              child: Icon(
-                Icons.zoom_out,
-                color: widget.zoomButtonsColor,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      _animatedMapMove(
+                        _mapController.camera.center,
+                        _mapController.camera.zoom + widget.stepZoom,
+                      );
+                    },
+                    child: Icon(Icons.add),
+                  ),
+                  Divider(indent: 5, endIndent: 5, thickness: 2),
+                  GestureDetector(
+                    onTap: () {
+                      _animatedMapMove(
+                        _mapController.camera.center,
+                        _mapController.camera.zoom - widget.stepZoom,
+                      );
+                    },
+                    child: Icon(Icons.remove),
+                  ),
+                ],
               ),
             ),
           const SizedBox(height: 22),
-          if (widget.showLocationController)
+          if (widget.locationControllerWidget != null)
+            GestureDetector(
+              onTap: () {
+                _determinePosition().then((currentPosition) {
+                  LatLong center = LatLong(
+                    currentPosition.latitude!,
+                    currentPosition.longitude!,
+                  );
+                  _animatedMapMove(center.toLatLng(), 18);
+                  onLocationChanged(latLng: center);
+                  setState(() {
+                    isLoading = false;
+                  });
+                }, onError: (e) => onError(e));
+              },
+              child: widget.locationControllerWidget,
+            )
+          else if (widget.showLocationController)
             FloatingActionButton(
               heroTag: "btn3",
               backgroundColor: widget.locationButtonBackgroundColor,
@@ -730,23 +783,22 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
                 // setState(() {
                 //   isLoading = true;
                 // });
-                _determinePosition().then(
-                  (currentPosition) {
-                    LatLong center = LatLong(
-                        currentPosition.latitude!, currentPosition.longitude!);
-                    _animatedMapMove(center.toLatLng(), 18);
-                    onLocationChanged(latLng: center);
-                    setState(
-                      () {
-                        isLoading = false;
-                      },
-                    );
-                  },
-                  onError: (e) => onError(e),
-                );
+                _determinePosition().then((currentPosition) {
+                  LatLong center = LatLong(
+                    currentPosition.latitude!,
+                    currentPosition.longitude!,
+                  );
+                  _animatedMapMove(center.toLatLng(), 18);
+                  onLocationChanged(latLng: center);
+                  setState(() {
+                    isLoading = false;
+                  });
+                }, onError: (e) => onError(e));
               },
-              child:
-                  Icon(Icons.my_location, color: widget.locationButtonsColor),
+              child: Icon(
+                Icons.my_location,
+                color: widget.locationButtonsColor,
+              ),
             ),
         ],
       ),
@@ -762,9 +814,10 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
           initialZoom: widget.initZoom,
           maxZoom: widget.maxZoomLevel,
           minZoom: widget.minZoomLevel,
-          cameraConstraint: (widget.maxBounds != null
-              ? CameraConstraint.contain(bounds: widget.maxBounds!)
-              : const CameraConstraint.unconstrained()),
+          cameraConstraint:
+              (widget.maxBounds != null
+                  ? CameraConstraint.contain(bounds: widget.maxBounds!)
+                  : const CameraConstraint.unconstrained()),
           backgroundColor:
               widget.mapLoadingBackgroundColor ?? const Color(0xFFE0E0E0),
           keepAlive: true,
@@ -785,7 +838,8 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
 
   Widget _buildCurrentLocation() {
     return marker.CurrentLocationLayer(
-      style: const marker.LocationMarkerStyle(
+      style: marker.LocationMarkerStyle(
+        marker: widget.currentLocationIcon ?? DefaultLocationMarker(),
         markerDirection: marker.MarkerDirection.heading,
         headingSectorRadius: 60,
         markerSize: Size(18, 18),
@@ -798,12 +852,9 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
       bottom: widget.markerIconOffset,
       child: IgnorePointer(
         child: Center(
-          child: widget.markerIcon ??
-              const Icon(
-                Icons.location_pin,
-                color: Colors.blue,
-                size: 50,
-              ),
+          child:
+              widget.markerIcon ??
+              const Icon(Icons.location_pin, color: Colors.blue, size: 50),
         ),
       ),
     );
@@ -825,17 +876,19 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
               setState(() {
                 isLoading = true;
               });
-              LatLong center = LatLong(_mapController.camera.center.latitude,
-                  _mapController.camera.center.longitude);
-              pickData(center).then((value) {
-                widget.onPicked(value);
-              }, onError: (e) => onError(e)).whenComplete(
-                () => setState(
-                  () {
-                    isLoading = false;
-                  },
-                ),
+              LatLong center = LatLong(
+                _mapController.camera.center.latitude,
+                _mapController.camera.center.longitude,
               );
+              pickData(center)
+                  .then((value) {
+                    widget.onPicked(value);
+                  }, onError: (e) => onError(e))
+                  .whenComplete(
+                    () => setState(() {
+                      isLoading = false;
+                    }),
+                  );
             },
             style: widget.selectLocationButtonStyle,
             textStyle: widget.selectedLocationButtonTextStyle,
@@ -852,14 +905,13 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
     return Stack(
       children: [
         _buildMap(),
-        if (!isLoading) _buildMarker(),
-        if (isLoading) Center(child: widget.loadingWidget!),
+        if (isLoading) Center(child: widget.loadingWidget!) else _buildMarker(),
         SafeArea(
           child: Stack(
             children: [
               _buildControllerButtons(),
               if (widget.showSearchBar) _buildSearchBar(),
-              if (widget.showContributorBadgeForOSM) ...[
+              if (widget.showContributorBadgeForOSM)
                 Positioned(
                   top: widget.contributorBadgeForOSMPositionTop,
                   bottom: widget.contributorBadgeForOSMPositionBottom,
@@ -871,11 +923,10 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
                     badgeColor: widget.contributorBadgeForOSMColor,
                   ),
                 ),
-              ],
               if (widget.showSelectLocationButton) _buildSelectButton(),
             ],
           ),
-        )
+        ),
       ],
     );
   }

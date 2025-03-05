@@ -18,28 +18,36 @@ class MyApp extends StatelessWidget {
           title: const Text('Flutter Location Picker'),
         ),
         body: FlutterLocationPicker(
+          initPosition: LatLong(33.6462, 72.9964),
+          selectLocationButtonText: 'Pick Location',
+          selectLocationButtonWidth: 200,
+          searchbarDebounceDuration: const Duration(milliseconds: 500),
+          markerIcon: SizedBox(),
+          showCurrentLocationPointer: true,
+          showZoomController: false,
+          showSearchBar: false,
+          showLocationController: false,
+          showSelectLocationButton: false,
           initZoom: 11,
-          minZoomLevel: 5,
-          maxZoomLevel: 16,
+
+          // minZoomLevel: 5,
+          maxZoomLevel: 22,
           trackMyPosition: true,
-          searchBarBackgroundColor: Colors.white,
-          selectedLocationButtonTextStyle: const TextStyle(fontSize: 18),
-          mapLanguage: 'en',
-          onError: (e) => print(e),
-          selectLocationButtonLeadingIcon: const Icon(Icons.check),
-          onPicked: (pickedData) {
-            print(pickedData.latLong.latitude);
-            print(pickedData.latLong.longitude);
+          onError: (e) => print("$e"),
+
+          onPicked: (pickedData) async {
+            final PickedData pickedLocationData = pickedData;
+            print("${pickedData.latLong}");
             print(pickedData.address);
-            print(pickedData.addressData);
+            print(pickedData.addressData['country']);
+            print("Location Picked: ${pickedData.addressData}");
           },
+
           onChanged: (pickedData) {
-            print(pickedData.latLong.latitude);
-            print(pickedData.latLong.longitude);
-            print(pickedData.address);
-            print(pickedData.addressData);
+            print(
+              "${pickedData.latLong.latitude}, ${pickedData.latLong.longitude} ${pickedData.address} and ${pickedData.addressData}",
+            );
           },
-          showContributorBadgeForOSM: true,
         ),
       ),
     );

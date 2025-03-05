@@ -4,10 +4,11 @@ class OSMdata {
   final String displayname;
   final double latitude;
   final double longitude;
-  const OSMdata(
-      {required this.displayname,
-      required this.latitude,
-      required this.longitude});
+  const OSMdata({
+    required this.displayname,
+    required this.latitude,
+    required this.longitude,
+  });
   @override
   String toString() {
     return '$displayname, $latitude, $longitude';
@@ -43,5 +44,9 @@ class PickedData {
   final dynamic fullResponse;
 
   const PickedData(
-      this.latLong, this.address, this.addressData, this.fullResponse);
+    this.latLong,
+    this.address,
+    this.addressData,
+    this.fullResponse,
+  );
 }
