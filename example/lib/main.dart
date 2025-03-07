@@ -14,9 +14,7 @@ class MyApp extends StatelessWidget {
       title: 'Flutter Location Picker',
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Flutter Location Picker'),
-        ),
+        appBar: AppBar(title: const Text('Flutter Location Picker')),
         body: FlutterLocationPicker(
           initPosition: LatLong(33.6462, 72.9964),
           selectLocationButtonText: 'Pick Location',
@@ -25,10 +23,14 @@ class MyApp extends StatelessWidget {
           markerIcon: SizedBox(),
           showCurrentLocationPointer: true,
           showZoomController: false,
-          showSearchBar: false,
-          showLocationController: false,
+          showLocationController: true,
           showSelectLocationButton: false,
           initZoom: 11,
+
+          currentLocationIcon: Icon(Icons.location_on),
+          onLocationChanged: (latlng) {
+            print("${latlng.latitude}, ${latlng.longitude} Picked");
+          },
 
           // minZoomLevel: 5,
           maxZoomLevel: 22,
