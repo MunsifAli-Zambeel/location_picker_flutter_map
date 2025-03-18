@@ -338,6 +338,7 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
   LatLong initPosition = const LatLong(30.0443879, 31.2357257);
   Timer? _debounce;
   bool isLoading = true;
+  bool loadingCurrentLocation = false;
   late void Function(Exception e) onError;
 
   /// It returns true if the text is RTL, false if it's LTR
@@ -760,48 +761,54 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
           const SizedBox(height: 22),
           if (widget.locationControllerWidget != null)
             GestureDetector(
-              onTap: () {
-                _determinePosition().then((currentPosition) {
-                  LatLong center = LatLong(
-                    currentPosition.latitude!,
-                    currentPosition.longitude!,
-                  );
-                  _animatedMapMove(center.toLatLng(), 18);
-                  onLocationChanged(latLng: center);
-                  setState(() {
-                    isLoading = false;
-                  });
-                }, onError: (e) => onError(e));
-              },
-              child: widget.locationControllerWidget,
+              onTap: !loadingCurrentLocation ? pickCurrentLocation : null,
+              child:
+                  loadingCurrentLocation
+                      ? PickLoadingIndicator(color: widget.locationButtonsColor)
+                      : widget.locationControllerWidget,
             )
           else if (widget.showLocationController)
             FloatingActionButton(
               heroTag: "btn3",
               backgroundColor: widget.locationButtonBackgroundColor,
-              onPressed: () async {
-                // setState(() {
-                //   isLoading = true;
-                // });
-                _determinePosition().then((currentPosition) {
-                  LatLong center = LatLong(
-                    currentPosition.latitude!,
-                    currentPosition.longitude!,
-                  );
-                  _animatedMapMove(center.toLatLng(), 18);
-                  onLocationChanged(latLng: center);
-                  setState(() {
-                    isLoading = false;
-                  });
-                }, onError: (e) => onError(e));
-              },
-              child: Icon(
-                Icons.my_location,
-                color: widget.locationButtonsColor,
-              ),
+              onPressed: !loadingCurrentLocation ? pickCurrentLocation : null,
+              child:
+                  loadingCurrentLocation
+                      ? PickLoadingIndicator(color: widget.locationButtonsColor)
+                      : Icon(
+                        Icons.my_location,
+                        color: widget.locationButtonsColor,
+                      ),
             ),
         ],
       ),
+    );
+  }
+
+  pickCurrentLocation() {
+    setState(() {
+      loadingCurrentLocation = true;
+    });
+    _determinePosition().then(
+      (currentPosition) {
+        LatLong center = LatLong(
+          currentPosition.latitude!,
+          currentPosition.longitude!,
+        );
+        _animatedMapMove(center.toLatLng(), 18);
+        onLocationChanged(latLng: center);
+        setState(() {
+          loadingCurrentLocation = false;
+        });
+      },
+      onError: (e, st) {
+        print(e);
+        print(st);
+        setState(() {
+          loadingCurrentLocation = false;
+        });
+        onError(e);
+      },
     );
   }
 
@@ -928,6 +935,22 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
           ),
         ),
       ],
+    );
+  }
+}
+
+class PickLoadingIndicator extends StatelessWidget {
+  const PickLoadingIndicator({super.key, this.color});
+
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircularProgressIndicator(
+      color:
+          color ??
+          Theme.of(context).floatingActionButtonTheme.foregroundColor ??
+          Theme.of(context).colorScheme.onSecondary,
     );
   }
 }
