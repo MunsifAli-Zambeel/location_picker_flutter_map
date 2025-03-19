@@ -52,6 +52,8 @@ class FlutterLocationPicker extends StatefulWidget {
   ///
   final String nominatimHost;
 
+  final double searchBarLeftPosition;
+
   /// [nominatimAdditionalQueryParameters] : (`Map<String,dynamic>`) additional parameters to add to the nominatim query. Can also be used to override existing parameters (example: {'extratags': '1'}) (default = null)
   ///
   final Map<String, dynamic>? nominatimAdditionalQueryParameters;
@@ -268,6 +270,7 @@ class FlutterLocationPicker extends StatefulWidget {
     this.initZoom = 17,
     this.minZoomLevel = 2,
     this.maxZoomLevel = 18.4,
+    this.searchBarLeftPosition = 0,
     this.maxBounds,
     this.urlTemplate = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     this.mapLanguage = 'en',
@@ -628,7 +631,7 @@ class _FlutterLocationPickerState extends State<FlutterLocationPicker>
 
     return Positioned(
       top: 0,
-      left: 0,
+      left: widget.searchBarLeftPosition,
       right: 0,
       child: Container(
         margin: const EdgeInsets.all(15),
