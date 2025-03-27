@@ -22,7 +22,6 @@ class MyApp extends StatelessWidget {
           searchbarDebounceDuration: const Duration(milliseconds: 500),
           markerIcon: SizedBox(),
           showCurrentLocationPointer: true,
-          showZoomController: false,
           showLocationController: true,
           showSelectLocationButton: false,
           initZoom: 11,
@@ -35,7 +34,7 @@ class MyApp extends StatelessWidget {
           // minZoomLevel: 5,
           maxZoomLevel: 22,
           trackMyPosition: true,
-          onError: (e) => print("$e"),
+          onError: (e) => print("ERROR On Picked: $e"),
 
           onPicked: (pickedData) async {
             final PickedData pickedLocationData = pickedData;
